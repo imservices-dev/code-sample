@@ -1,0 +1,63 @@
+# Build a release of the block.
+#
+# Pushing a tag such as `block-v1.0.1` builds the plugin zip from that exact
+# commit and attaches it to a GitHub release. Nothing is deployed here; deploying
+# is a separate, approved step (deploy-block.yml) that uses this release asset.
+name: Release block
+
+on:
+  push:
+    tags:
+      - 'block-v*'
+
+permissions:
+  contents: write # needed to create the release
+
+defaults:
+  run:
+    working-directory: gutenberg-price-estimator
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: gutenberg-price-estimator/package-lock.json
+
+      # The tag, the plugin header and block.json must all name the same
+      # version, otherwise the zip would say one thing and the tag another.
+      - name: Check the version matches the tag
+        run: |
+          tag_version="${GITHUB_REF_NAME#block-v}"
+          header_version="$(sed -n 's/^ \* Version: *//p' price-estimator.php | head -1)"
+          json_version="$(node -p "require('./src/block.json').version")"
+          echo "tag=$tag_version header=$header_version block.json=$json_version"
+          [ "$tag_version" = "$header_version" ] && [ "$tag_version" = "$json_version" ]
+
+      - run: npm ci
+      - run: npm run lint:js
+      - run: npm test
+      - run: npm run build
+
+      - name: Check the committed build is up to date
+        run: git diff --exit-code -- build
+
+      - name: Package the plugin
+        run: |
+          npm run plugin-zip
+          sha256sum price-estimator.zip > price-estimator.zip.sha256
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            price-estimator.zip price-estimator.zip.sha256 \
+            --title "Price Estimator ${GITHUB_REF_NAME#block-v}" \
+            --generate-notes
