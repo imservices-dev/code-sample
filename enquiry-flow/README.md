@@ -39,7 +39,7 @@ npm run type-check
 5. Only if both fail does the visitor get an error, and every error state in the
    form ends with the contact email address.
 
-## Practices shown
+## What it demonstrates
 
 **Security**
 - Token authentication, then a *separate* authorization check on which site the

@@ -21,5 +21,3 @@ deployment) and [`docs/ci-cd.md`](docs/ci-cd.md), which explains the pipeline.
 | Enquiry API: PHPUnit feature tests (22) | Passing in the full application; cannot run from this folder |
 | Block end-to-end in a real WordPress (5 Playwright tests, WordPress 7.1.3) | Passing |
 | GitHub Actions workflows | Validated with `actionlint`; not yet run on GitHub |
-
-The engineering approach follows the 10up Engineering Best Practices.
