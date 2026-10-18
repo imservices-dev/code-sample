@@ -1,0 +1,76 @@
+# SAMPLE — not active. It lives under docs/ so GitHub does not run it.
+#
+# The enquiry API in enquiry-flow/api/ is an excerpt of a larger Laravel
+# application and cannot run from this repository. This is the workflow that
+# runs its tests inside that application; copy it to the application's
+# .github/workflows/ to use it.
+name: API CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: api-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: app_test
+        ports: [ '3306:3306' ]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: app_test
+      DB_USERNAME: root
+      DB_PASSWORD: root
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - run: composer install --no-interaction --prefer-dist --no-progress
+
+      - run: cp .env.example .env && php artisan key:generate
+
+      # Migrations run on a throwaway database, so a migration that only works on
+      # a developer's machine fails here instead of in production.
+      - run: php artisan migrate --force
+
+      - name: Tests
+        run: php artisan test --parallel
+
+      - name: Coding style
+        run: vendor/bin/pint --test
+
+      - name: Dependency advisories
+        run: composer audit
