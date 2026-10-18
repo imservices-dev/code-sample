@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<ruleset name="Price Estimator">
+	<description>WordPress Coding Standards for the Price Estimator block.</description>
+
+	<file>price-estimator.php</file>
+	<file>includes</file>
+	<file>src/render.php</file>
+
+	<arg name="extensions" value="php"/>
+	<arg value="ps"/>
+
+	<config name="minimum_supported_wp_version" value="6.4"/>
+	<config name="testVersion" value="7.4-"/>
+
+	<rule ref="WordPress"/>
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="price-estimator"/>
+			</property>
+		</properties>
+	</rule>
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="price_estimator"/>
+				<element value="CodeSample\PriceEstimator"/>
+			</property>
+		</properties>
+	</rule>
+</ruleset>

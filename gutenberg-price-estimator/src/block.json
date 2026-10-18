@@ -1,0 +1,70 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "codesample/price-estimator",
+	"version": "1.0.0",
+	"title": "Price Estimator",
+	"category": "widgets",
+	"icon": "calculator",
+	"description": "Let visitors estimate a subscription price from your packages, billing model, branches and add-ons.",
+	"keywords": [ "pricing", "calculator", "quote", "estimate" ],
+	"textdomain": "price-estimator",
+	"supports": {
+		"html": false,
+		"align": [ "wide" ],
+		"spacing": { "padding": true }
+	},
+	"attributes": {
+		"heading": { "type": "string", "default": "Estimate your price" },
+		"disclaimer": {
+			"type": "string",
+			"default": "This is an estimate, not a quotation."
+		},
+		"currencySymbol": { "type": "string", "default": "$" },
+		"hybridRate": { "type": "number", "default": 2 },
+		"ctaLabel": { "type": "string", "default": "Request a quote" },
+		"ctaUrl": { "type": "string", "default": "" },
+		"packages": {
+			"type": "array",
+			"default": [
+				{
+					"name": "Starter",
+					"monthlyFee": 49,
+					"hybridFee": 29,
+					"annualFee": 490,
+					"revenueRate": 3,
+					"revenueMin": 29
+				},
+				{
+					"name": "Growth",
+					"monthlyFee": 99,
+					"hybridFee": 59,
+					"annualFee": 990,
+					"revenueRate": 2.5,
+					"revenueMin": 59
+				},
+				{
+					"name": "Premium",
+					"monthlyFee": 199,
+					"hybridFee": 119,
+					"annualFee": 1990,
+					"revenueRate": 2,
+					"revenueMin": 119
+				}
+			]
+		},
+		"addOns": {
+			"type": "array",
+			"default": [
+				{ "id": "terminal", "label": "Extra terminal", "price": 15, "max": 10 },
+				{ "id": "user", "label": "Extra user", "price": 5, "max": 20 },
+				{ "id": "display", "label": "Customer display", "price": 10, "max": 10 }
+			]
+		}
+	},
+	"editorScript": "file:./index.js",
+	"editorStyle": "file:./index.css",
+	"style": "file:./style-index.css",
+	"viewScript": "file:./view.js",
+	"render": "file:./render.php"
+}

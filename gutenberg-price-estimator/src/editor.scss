@@ -1,0 +1,5 @@
+/* Editor-only tweaks. The preview is interactive, so keep it clear of the
+   block toolbar's click area. */
+.price-estimator {
+	min-block-size: 4rem;
+}
