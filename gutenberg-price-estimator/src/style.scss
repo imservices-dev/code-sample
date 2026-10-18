@@ -1,0 +1,415 @@
+/*
+ * Price Estimator — shared by the editor and the front end.
+ *
+ * Principles
+ *  - Mobile-first. The two-column layout switches on the block's own width
+ *    (a container query), not the viewport, so it also works inside columns
+ *    and in the editor canvas.
+ *  - One class per element, so specificity stays at 0,1,0 (0,2,0 for state).
+ *  - Logical properties, relative units, no margins on components: spacing
+ *    comes from `gap` on the parent.
+ *  - Every colour, radius and shadow is a custom property with a default, so a
+ *    theme restyles the block by setting variables, not by fighting selectors.
+ *  - Contrast: body text >= 7:1 on its surface, accent >= 4.5:1 on white,
+ *    white on the summary panel >= 7:1. Selection never relies on colour alone.
+ *  - Motion is opt-in (`prefers-reduced-motion: no-preference`).
+ *
+ * Theme variables (all optional):
+ *   --pe-accent  --pe-ink  --pe-muted  --pe-surface  --pe-border  --pe-radius
+ *   --pe-summary-from  --pe-summary-to
+ */
+
+.price-estimator {
+	--pe-accent: #0a7c78;
+	--pe-accent-tint: rgb(10 124 120 / 8%);
+	--pe-ink: #0f2a3d;
+	--pe-muted: #4a6072;
+	--pe-surface: #fff;
+	--pe-border: #d3dce4;
+	--pe-radius: 1rem;
+	--pe-summary-from: #0b2740;
+	--pe-summary-to: #0f5b66;
+	--pe-ring: 0 0 0 3px rgb(10 124 120 / 30%);
+
+	container: price-estimator / inline-size;
+	border: 1px solid var(--pe-border);
+	border-radius: calc(var(--pe-radius) + 0.5rem);
+	background: var(--pe-surface);
+	padding: clamp(1rem, 4cqi, 2.5rem);
+	color: var(--pe-ink);
+	box-shadow:
+		0 1px 2px rgb(15 42 61 / 6%),
+		0 12px 32px -12px rgb(15 42 61 / 18%);
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+
+.price-estimator__body {
+	display: grid;
+	gap: 1.5rem;
+}
+
+.price-estimator__heading {
+	margin: 0;
+	font-size: 1.625rem;
+	font-size: clamp(1.5rem, 1.1rem + 1.6cqi, 2.25rem);
+	font-weight: 700;
+	line-height: 1.15;
+	letter-spacing: -0.02em;
+	text-wrap: balance;
+}
+
+.price-estimator__controls {
+	display: grid;
+	gap: 1.75rem;
+	align-content: start;
+}
+
+@container price-estimator (min-width: 56rem) {
+
+	.price-estimator__body {
+		grid-template-columns: minmax(0, 1.45fr) minmax(16rem, 1fr);
+		gap: 2rem 2.5rem;
+	}
+
+	.price-estimator__heading {
+		grid-column: 1 / -1;
+	}
+
+	.price-estimator__summary {
+		position: sticky;
+		inset-block-start: 1.5rem;
+		align-self: start;
+	}
+}
+
+/* ── Choice cards (package, billing model) ──────────────────────────────── */
+
+.price-estimator__group {
+	margin: 0;
+	border: 0;
+	padding: 0;
+	min-inline-size: 0;
+}
+
+.price-estimator__group legend,
+.price-estimator__field label,
+.price-estimator__label {
+	font-size: 0.8125rem;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.price-estimator__group legend {
+	margin-block-end: 0.75rem;
+	padding: 0;
+	color: var(--pe-muted);
+}
+
+.price-estimator__options {
+	display: grid;
+	gap: 0.625rem;
+	grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+}
+
+.price-estimator__choice {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.75rem;
+	border: 1.5px solid var(--pe-border);
+	border-radius: var(--pe-radius);
+	background: var(--pe-surface);
+	padding: 0.875rem 1rem;
+	cursor: pointer;
+}
+
+.price-estimator__choice:hover {
+	border-color: var(--pe-accent);
+}
+
+.price-estimator__choice:has(:checked) {
+	border-color: var(--pe-accent);
+	background: var(--pe-accent-tint);
+	box-shadow: 0 0 0 1px var(--pe-accent);
+}
+
+.price-estimator__choice:has(:focus-visible) {
+	box-shadow: 0 0 0 1px var(--pe-accent), var(--pe-ring);
+}
+
+.price-estimator__choice-text {
+	display: grid;
+	gap: 0.125rem;
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.price-estimator__hint {
+	color: var(--pe-muted);
+	font-size: 0.8125rem;
+	font-weight: 500;
+}
+
+/* Custom radio: a ring that fills, so the selected state has a shape, not
+   only a colour. */
+.price-estimator input[type="radio"] {
+	flex: none;
+	appearance: none;
+	margin: 0.0625rem 0 0;
+	border: 2px solid var(--pe-muted);
+	border-radius: 50%;
+	background: var(--pe-surface);
+	inline-size: 1.25rem;
+	block-size: 1.25rem;
+}
+
+.price-estimator input[type="radio"]:checked {
+	border-color: var(--pe-accent);
+	background: var(--pe-accent);
+	box-shadow: inset 0 0 0 0.2rem var(--pe-surface);
+}
+
+/* ── Number fields ──────────────────────────────────────────────────────── */
+
+.price-estimator__fields {
+	display: grid;
+	gap: 1rem;
+	grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.price-estimator__field {
+	display: grid;
+	gap: 0.5rem;
+	align-content: start;
+}
+
+.price-estimator__field label {
+	color: var(--pe-muted);
+	line-height: 1.35;
+	text-transform: none;
+	letter-spacing: 0.01em;
+	font-size: 0.875rem;
+	font-weight: 600;
+}
+
+/* 1rem text stops iOS zooming the page when a field is focused. */
+.price-estimator input[type="number"] {
+	box-sizing: border-box;
+	border: 1.5px solid var(--pe-border);
+	border-radius: 0.75rem;
+	background: var(--pe-surface);
+	padding-inline: 1rem;
+	inline-size: 100%;
+	block-size: 3rem;
+	color: var(--pe-ink);
+	font: inherit;
+	font-size: 1rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.price-estimator input[type="number"]:hover {
+	border-color: var(--pe-muted);
+}
+
+/* ── Billing switch ─────────────────────────────────────────────────────── */
+
+.price-estimator__annual {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	font-weight: 600;
+}
+
+.price-estimator__switch {
+	position: relative;
+	flex: none;
+	appearance: none;
+	margin: 0;
+	border-radius: 999px;
+	background: var(--pe-muted);
+	inline-size: 2.75rem;
+	block-size: 1.5rem;
+	cursor: pointer;
+}
+
+.price-estimator__switch::before {
+	position: absolute;
+	inset-block-start: 0.1875rem;
+	inset-inline-start: 0.1875rem;
+	border-radius: 50%;
+	background: #fff;
+	inline-size: 1.125rem;
+	block-size: 1.125rem;
+	content: "";
+}
+
+.price-estimator__switch:checked {
+	background: var(--pe-accent);
+}
+
+.price-estimator__switch:checked::before {
+	inset-inline-start: 1.4375rem;
+}
+
+.price-estimator__switch:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.price-estimator__switch-label {
+	color: var(--pe-ink);
+	font-size: 0.9375rem;
+	line-height: 1.35;
+}
+
+/* ── Summary panel ──────────────────────────────────────────────────────── */
+
+.price-estimator__summary {
+	display: grid;
+	gap: 1rem;
+	border-radius: calc(var(--pe-radius) + 0.25rem);
+	background: #0b2740;
+	background:
+		radial-gradient(120% 90% at 100% 0%, rgb(255 255 255 / 12%), transparent 55%),
+		linear-gradient(150deg, var(--pe-summary-from), var(--pe-summary-to));
+	padding: clamp(1.25rem, 4cqi, 2rem);
+	color: #fff;
+	box-shadow: 0 18px 36px -18px rgb(11 39 64 / 60%);
+}
+
+.price-estimator__label {
+	margin: 0;
+	color: rgb(255 255 255 / 78%);
+}
+
+/* A fixed minimum height stops the panel jumping when the total is replaced by
+   the "enter your revenue" prompt. */
+.price-estimator__result {
+	display: grid;
+	gap: 0.5rem;
+	align-content: start;
+	min-block-size: 4.5rem;
+}
+
+.price-estimator__result p {
+	margin: 0;
+	color: rgb(255 255 255 / 86%);
+	line-height: 1.45;
+}
+
+.price-estimator__result .price-estimator__total {
+	color: #fff;
+	font-size: 2.5rem;
+	font-size: clamp(2.25rem, 1.6rem + 3.4cqi, 3.5rem);
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+	letter-spacing: -0.03em;
+}
+
+.price-estimator__period {
+	font-size: 1rem;
+	font-weight: 500;
+	letter-spacing: 0;
+	opacity: 0.8;
+}
+
+.price-estimator__disclaimer {
+	margin: 0;
+	color: rgb(255 255 255 / 78%);
+	font-size: 0.8125rem;
+	line-height: 1.5;
+}
+
+.price-estimator__cta {
+	display: block;
+	border-radius: 999px;
+	background: #fff;
+	padding: 0.9rem 1.5rem;
+	color: var(--pe-summary-from);
+	font-weight: 700;
+	text-align: center;
+	text-decoration: none;
+}
+
+/* Decorative arrow; the empty alternative keeps it out of the
+   accessible name. */
+.price-estimator__cta::after {
+	margin-inline-start: 0.5rem;
+	content: "\2192" / "";
+}
+
+.price-estimator__cta:hover {
+	background: #e9f6f5;
+}
+
+/* ── Focus ──────────────────────────────────────────────────────────────── */
+
+.price-estimator input:focus-visible,
+.price-estimator__cta:focus-visible {
+	outline: 3px solid var(--pe-accent);
+	outline-offset: 2px;
+}
+
+.price-estimator__cta:focus-visible {
+	outline-color: #fff;
+	outline-offset: 3px;
+}
+
+/* The radio sits inside a card that already draws the focus ring. */
+.price-estimator input[type="radio"]:focus-visible {
+	outline: none;
+}
+
+/* ── Server-rendered fallback (shown until view.js mounts) ──────────────── */
+
+.price-estimator__fallback {
+	margin: 0;
+	padding-inline-start: 1.25rem;
+	color: var(--pe-ink);
+	line-height: 1.7;
+}
+
+.price-estimator__fallback + .price-estimator__disclaimer {
+	color: var(--pe-muted);
+}
+
+/* ── Motion: opt-in only ────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+
+	.price-estimator__choice,
+	.price-estimator input[type="number"],
+	.price-estimator__switch,
+	.price-estimator__switch::before,
+	.price-estimator__cta {
+		transition:
+			border-color 150ms ease,
+			background-color 150ms ease,
+			box-shadow 150ms ease,
+			transform 150ms ease,
+			inset-inline-start 150ms ease;
+	}
+
+	.price-estimator__cta:hover {
+		transform: translateY(-1px);
+	}
+}
+
+/* ── Windows high contrast ──────────────────────────────────────────────── */
+
+@media (forced-colors: active) {
+
+	.price-estimator__choice:has(:checked) {
+		outline: 3px solid Highlight;
+	}
+
+	.price-estimator__summary {
+		border: 1px solid CanvasText;
+	}
+
+	.price-estimator__switch:checked {
+		background: Highlight;
+	}
+}
