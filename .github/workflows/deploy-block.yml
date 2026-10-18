@@ -1,0 +1,102 @@
+# SAMPLE deployment of the block to a WordPress server.
+#
+# This shows how the deploy step is built; it will not run successfully until the
+# secrets below exist, which is intentional. Nothing deploys automatically:
+# a person starts it, chooses the environment and the release, and a production
+# deployment waits for a reviewer to approve it (configure "Required reviewers"
+# on the `production` environment in the repository settings).
+name: Deploy block
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [ staging, production ]
+        required: true
+      tag:
+        description: Release tag to deploy, e.g. block-v1.0.0
+        required: true
+
+permissions:
+  contents: read
+
+# Only one deployment per environment at a time; never cancel one half-way.
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.tag }} to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Secrets and approval rules live on the environment, so staging and
+    # production credentials can never be mixed up.
+    environment: ${{ inputs.environment }}
+    env:
+      # Secrets expected on each environment:
+      #   DEPLOY_HOST   server host name
+      #   DEPLOY_USER   SSH user
+      #   DEPLOY_PATH   WordPress root, e.g. /var/www/html
+      #   DEPLOY_SSH_KEY private key for DEPLOY_USER (deploy-only, no shell access beyond this)
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+    steps:
+      - name: Download the release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Passed through the environment, not interpolated into the script,
+          # so a crafted tag name cannot become shell code.
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'price-estimator.zip*'
+
+      # The checksum was produced by the release workflow, so a zip that was
+      # altered afterwards is not deployed.
+      - name: Verify the checksum
+        run: sha256sum --check price-estimator.zip.sha256
+
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Trust the server's host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      # Keep the running version so a failed check can put it straight back.
+      - name: Back up the current plugin
+        run: |
+          # shellcheck disable=SC2029 # expanding the path on this side is intended
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && wp plugin is-installed price-estimator && \
+             tar -czf /tmp/price-estimator-backup.tgz -C wp-content/plugins price-estimator || true"
+
+      - name: Install the new version
+        run: |
+          # shellcheck disable=SC2029 # expanding the path on this side is intended
+          scp price-estimator.zip "$DEPLOY_USER@$DEPLOY_HOST:/tmp/price-estimator.zip"
+          # shellcheck disable=SC2029
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && wp plugin install /tmp/price-estimator.zip --force --activate && wp cache flush"
+
+      # A deployment is not finished until the page works. If this fails, the
+      # next step restores the backup.
+      - name: Smoke test
+        id: smoke
+        run: |
+          # shellcheck disable=SC2029 # expanding the path on this side is intended
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && wp eval 'exit( WP_Block_Type_Registry::get_instance()->is_registered( \"codesample/price-estimator\" ) ? 0 : 1 );'"
+
+      - name: Roll back on failure
+        if: failure() && steps.smoke.outcome == 'failure'
+        run: |
+          # shellcheck disable=SC2029 # expanding the path on this side is intended
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && tar -xzf /tmp/price-estimator-backup.tgz -C wp-content/plugins && wp cache flush"

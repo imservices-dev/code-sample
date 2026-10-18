@@ -1,0 +1,68 @@
+# Dependency and supply-chain checks.
+#
+# Runs when a lock file changes, and weekly, because a dependency that was safe
+# on the day it was merged can have an advisory published a month later.
+name: Security
+
+on:
+  pull_request:
+    paths:
+      - '**/package-lock.json'
+      - '**/composer.lock'
+  schedule:
+    - cron: '17 5 * * 1' # Mondays, 05:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Review new dependencies
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  audit:
+    name: Audit installed packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      # Runtime dependencies must be clean. The block ships no npm packages
+      # (WordPress provides @wordpress/* at runtime), so for it this guards
+      # against someone adding one without noticing.
+      - name: npm audit — block (runtime)
+        working-directory: gutenberg-price-estimator
+        run: npm ci && npm audit --omit=dev --audit-level=high
+
+      - name: npm audit — enquiry web (runtime)
+        working-directory: enquiry-flow/web
+        run: npm ci && npm audit --omit=dev --audit-level=high
+
+      - name: Composer audit — block
+        working-directory: gutenberg-price-estimator
+        run: composer audit
+
+      # Build tooling advisories are reported but do not block: they are fixed
+      # by upgrading @wordpress/scripts, which is a planned change, not a
+      # reason to stop unrelated work.
+      - name: npm audit — block (build tooling, report only)
+        working-directory: gutenberg-price-estimator
+        continue-on-error: true
+        run: npm audit --audit-level=high

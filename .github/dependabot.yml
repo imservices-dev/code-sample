@@ -1,0 +1,25 @@
+# Weekly dependency update pull requests. Each one runs the full CI before it
+# can be merged, so an update that breaks something is visible, not silent.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /gutenberg-price-estimator
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      wordpress-packages:
+        patterns: [ '@wordpress/*' ]
+
+  - package-ecosystem: npm
+    directory: /enquiry-flow/web
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: composer
+    directory: /gutenberg-price-estimator
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

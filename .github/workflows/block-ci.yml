@@ -1,0 +1,131 @@
+# Continuous integration for the Gutenberg block.
+#
+# Runs on every pull request and on pushes to main that touch the block. A pull
+# request cannot merge until these jobs pass (see "Branch protection" in
+# docs/ci-cd.md).
+name: Block CI
+
+on:
+  pull_request:
+    paths:
+      - 'gutenberg-price-estimator/**'
+      - '.github/workflows/block-ci.yml'
+  push:
+    branches: [ main ]
+    paths:
+      - 'gutenberg-price-estimator/**'
+      - '.github/workflows/block-ci.yml'
+
+# A new push to the same branch cancels the run it replaces.
+concurrency:
+  group: block-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: CI only needs to read the repository.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: gutenberg-price-estimator
+
+jobs:
+  javascript:
+    name: JavaScript (lint, unit tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: gutenberg-price-estimator/package-lock.json
+
+      # `npm ci` installs exactly what the lock file says and fails if it is stale.
+      - run: npm ci
+
+      - name: Lint JavaScript
+        run: npm run lint:js
+
+      - name: Lint styles
+        run: npm run lint:css
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # build/ is committed so the plugin installs without Node. This fails the
+      # pull request if someone changed src/ and forgot to rebuild.
+      - name: Check the committed build is up to date
+        run: git diff --exit-code -- build
+
+  php:
+    name: PHP ${{ matrix.php }} (unit tests, coding standards)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '7.4', '8.1', '8.3' ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: PHPUnit
+        run: composer test
+
+      # Coding standards are the same on every PHP version; run them once.
+      - name: PHPCS (WordPress Coding Standards)
+        if: matrix.php == '8.3'
+        run: composer lint
+
+  e2e:
+    name: End-to-end (real WordPress)
+    needs: [ javascript, php ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: gutenberg-price-estimator/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+
+      # wp-env starts WordPress in Docker (available on GitHub-hosted runners)
+      # with this plugin mounted and activated.
+      - name: Start WordPress
+        run: npm run env:start
+
+      - name: Run end-to-end tests
+        run: npm run test:e2e
+        env:
+          CI: 'true'
+
+      - name: Upload failure artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: gutenberg-price-estimator/artifacts
+          retention-days: 7
